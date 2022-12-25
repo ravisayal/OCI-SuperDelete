@@ -6,9 +6,9 @@ MaxErrorIteration = 20
 ###########################################
 # DeleteBuckets
 ###########################################
-def DeleteBuckets(config, Compartments):
+def DeleteBuckets(config, signer, Compartments):
     AllBuckets = []
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
 
     ns = object.get_namespace().data
 
@@ -22,11 +22,12 @@ def DeleteBuckets(config, Compartments):
 
     for buckets in AllBuckets:
         for bucket in buckets:
-            AbortMultipartupload(config, bucket)
-            DeleteReplication(config, bucket)
-            DeletePreauthenticated(config, bucket)
-            DeleteObjects(config, bucket)
-            DeleteObjectVersions(config, bucket)
+            DeleteRetentionRules(config, signer, bucket)
+            AbortMultipartupload(config, signer, bucket)
+            DeleteReplication(config, signer, bucket)
+            DeletePreauthenticated(config, signer, bucket)
+            DeleteObjects(config, signer, bucket)
+            DeleteObjectVersions(config, signer, bucket)
 
     for buckets in AllBuckets:
         for bucket in buckets:
@@ -38,13 +39,41 @@ def DeleteBuckets(config, Compartments):
 
     print("All buckets deleted!")
 
+###########################################
+# Delete Retention Rules
+###########################################
+def DeleteRetentionRules(config, signer, bucket):
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
+    print("Deleting retention rules in bucket: {}".format(bucket.name))
+    more = True
+
+    iteration = 0
+    while more:
+        result = oci.pagination.list_call_get_all_results(object.list_retention_rules, namespace_name=bucket.namespace, bucket_name=bucket.name)
+
+        items = result.data
+        if len(items) == 0:
+            more = False
+        else:
+            for item in items:
+                print("Deleting {}:{}".format(bucket.name, item.display_name))
+                try:
+                    object.delete_retention_rule(namespace_name=bucket.namespace, bucket_name=bucket.name, retention_rule_id=item.id)
+                except Exception as e:
+                    print("error deleting retention rule : {} - {}".format(item.display_name, str(e)))
+                    iteration += 1
+                    if iteration >= MaxErrorIteration:
+                        print("Some retention rules not deleted, skipping!")
+                        return
+    print("All retention rules deleted!")
+
 
 ###########################################
 # DeleteObjects
 ###########################################
-def DeleteObjects(config, bucket):
+def DeleteObjects(config, signer, bucket):
     objectlimit = 20
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
     print("Deleting objects in bucket: {}".format(bucket.name))
     more = True
 
@@ -71,9 +100,9 @@ def DeleteObjects(config, bucket):
 ###########################################
 # DeleteObjectVersions
 ###########################################
-def DeleteObjectVersions(config, bucket):
+def DeleteObjectVersions(config, signer, bucket):
     objectlimit = 20
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
     print("Deleting objects in bucket: {}".format(bucket.name))
     more = True
 
@@ -100,9 +129,9 @@ def DeleteObjectVersions(config, bucket):
 ###########################################
 # DeleteReplication
 ###########################################
-def DeleteReplication(config, bucket):
+def DeleteReplication(config, signer, bucket):
     objectlimit = 20
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
     print("Deleting replications in bucket: {}".format(bucket.name))
     more = True
 
@@ -123,9 +152,9 @@ def DeleteReplication(config, bucket):
 ###########################################
 # DeletePreauthenticated
 ###########################################
-def DeletePreauthenticated(config, bucket):
+def DeletePreauthenticated(config, signer, bucket):
     objectlimit = 20
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
     print("Aborts an in-progress multipart upload and deletes all parts that have been uploaded in bucket: {}".format(bucket.name))
     more = True
 
@@ -146,9 +175,9 @@ def DeletePreauthenticated(config, bucket):
 ###########################################
 # AbortMultipartupload
 ###########################################
-def AbortMultipartupload(config, bucket):
+def AbortMultipartupload(config, signer, bucket):
     objectlimit = 20
-    object = oci.object_storage.ObjectStorageClient(config)
+    object = oci.object_storage.ObjectStorageClient(config, signer=signer)
     print("Deleting Preauthenticated in bucket: {}".format(bucket.name))
     more = True
 

@@ -8,10 +8,10 @@ WaitRefresh = 15
 ##############################################
 # DeleteKMSvaults
 ##############################################
-def DeleteKMSvaults(config, Compartments, MovetoCompartmentID):
+def DeleteKMSvaults(config,signer, Compartments, MovetoCompartmentID):
     AllItems = []
-    object = oci.key_management.KmsVaultClient(config)
-    vaultClient = oci.vault.VaultsClient(config)
+    object = oci.key_management.KmsVaultClient(config, signer=signer)
+    vaultClient = oci.vault.VaultsClient(config, signer=signer)
 
     print("Getting all KMS Vault objects")
     for C in Compartments:
@@ -27,6 +27,10 @@ def DeleteKMSvaults(config, Compartments, MovetoCompartmentID):
             secrets = vaultClient.list_secrets(compartment_id=Compartment.id).data
         except oci.exceptions.ServiceError as response:
             print("Error moving secret {} - {}".format(response.code, response.message))
+            secrets = []
+        except:
+            print("error")
+            secrets = []
 
         for secret in secrets:
             try:
@@ -39,6 +43,8 @@ def DeleteKMSvaults(config, Compartments, MovetoCompartmentID):
                 vaultClient.change_secret_compartment(secret_id=secret.id, change_secret_compartment_details=secretchangedetails, retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
             except oci.exceptions.ServiceError as response:
                 print ("Error moving secret {} - {}".format(response.code, response.message))
+            except:
+                print ("general error")
 
     for item in AllItems:
         try:
